@@ -287,12 +287,15 @@ async function executeAladinSearch(keyword) {
     else if (currentGenreFilter === 'self-help') categoryQuery = '&CategoryId=336';
 
     const aladinUrl = `http://www.aladin.co.kr/ttb/api/ItemSearch.aspx?ttbkey=${aladinApiKey}&Query=${encodeURIComponent(keyword)}&QueryType=Title&MaxResults=20&start=1&SearchTarget=Book${categoryQuery}&output=js&Version=20131101`;
-    const proxyUrl = `https://api.allorigins.win/raw?url=${encodeURIComponent(aladinUrl)}`;
+    const proxyUrl = `https://api.allorigins.win/get?url=${encodeURIComponent(aladinUrl)}`;
     
     const response = await fetch(proxyUrl);
     if (!response.ok) throw new Error('Aladin API Proxy connection failed');
     
-    let text = await response.text();
+    const wrapper = await response.json();
+    let text = wrapper.contents;
+    if (!text) throw new Error('Empty content from Aladin Proxy');
+    
     text = text.trim();
     if (text.endsWith(';')) text = text.slice(0, -1); // Safe JSONP parsing
     

@@ -226,6 +226,11 @@ export async function showBookDetail(bookData) {
         document.getElementById('btnDetailAddCart').dataset.inCart = "false";
     }
 
+    // Trigger dynamic background lookup to hydrate details from Aladin ItemLookUp if ISBN exists
+    if (isbn) {
+        enrichBookDetails(isbn);
+    }
+
     toggleDetailModal(true);
 }
 
@@ -486,5 +491,68 @@ async function handleAddCart() {
         showToast('장바구니 조작 실패: ' + err.message, 'danger');
     } finally {
         btn.disabled = false;
+    }
+}
+
+// Enrich Book details using Aladin ItemLookUp API dynamically
+async function enrichBookDetails(isbn) {
+    if (!isbn) return;
+    
+    try {
+        const aladinApiKey = localStorage.getItem('aladin_api_key') || 'ttbclassic1138002'; // Demo/Universal Public Key
+        const lookupUrl = `http://www.aladin.co.kr/ttb/api/ItemLookUp.aspx?ttbkey=${aladinApiKey}&itemIdType=ISBN13&ItemId=${isbn}&output=js&Version=20131101`;
+        const proxyUrl = `https://api.allorigins.win/get?url=${encodeURIComponent(lookupUrl)}`;
+        
+        const response = await fetch(proxyUrl);
+        if (!response.ok) return;
+        
+        const wrapper = await response.json();
+        let text = wrapper.contents;
+        if (!text) return;
+        
+        text = text.trim();
+        if (text.endsWith(';')) text = text.slice(0, -1);
+        
+        const data = JSON.parse(text);
+        if (data.item && data.item.length > 0) {
+            const detailItem = data.item[0];
+            
+            // Enrich description if exists and is better
+            if (detailItem.description) {
+                const descEl = document.getElementById('detailBookDesc');
+                if (descEl) descEl.textContent = detailItem.description;
+                currentBook.description = detailItem.description;
+            }
+            
+            // Enrich Page count using subInfo.itemPage
+            if (detailItem.subInfo && detailItem.subInfo.itemPage) {
+                const pages = parseInt(detailItem.subInfo.itemPage);
+                if (pages > 0) {
+                    const pagesEl = document.getElementById('detailBookPages');
+                    if (pagesEl) pagesEl.textContent = `${pages} p`;
+                    currentBook.total_pages = pages;
+                    
+                    // Auto-sync progress fills if active
+                    if (currentBook.status === 'reading') {
+                        const pct = Math.round((currentBook.current_page / pages) * 100);
+                        const progressFill = document.getElementById('detailProgressFill');
+                        const progressText = document.getElementById('detailProgressText');
+                        if (progressFill) progressFill.style.width = `${pct}%`;
+                        if (progressText) progressText.textContent = `진행도 ${pct}% (${currentBook.current_page} / ${pages}p)`;
+                    }
+                    
+                    // If local book, dynamically upsert total pages count to Supabase! (Silent fix for empty pages in local DB)
+                    const user = getCurrentUser();
+                    if (user && isLocalBook && localBookId) {
+                        await supabase
+                            .from('books')
+                            .update({ total_pages: pages })
+                            .eq('id', localBookId);
+                    }
+                }
+            }
+        }
+    } catch (err) {
+        console.warn('Background details hydration exception: ', err);
     }
 }

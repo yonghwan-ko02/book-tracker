@@ -219,8 +219,33 @@ function renderBooks(books) {
             }
             
             actionsHtml = `
-                <div class="book-card-rating" style="font-size: 13px; margin: auto 0 0 0;">
+                <div class="book-card-rating" style="font-size: 11px; margin-bottom: 6px;">
                     ${stars || '평가 없음'}
+                </div>
+                <div style="display: flex; gap: 6px; width: 100%;">
+                    <button class="btn-card-action primary btn-log-progress" 
+                        data-id="${book.id}" 
+                        data-title="${encodeURIComponent(book.title)}"
+                        data-author="${encodeURIComponent(book.authors?.join(', ') || '작가 미상')}"
+                        data-cover="${encodeURIComponent(book.cover_url || '')}"
+                        data-current="${book.current_page}"
+                        data-total="${book.total_pages}">
+                        <i class="fa-solid fa-pen"></i> 기록
+                    </button>
+                    <button class="btn-card-action secondary btn-finish-reading" 
+                        data-id="${book.id}"
+                        data-title="${encodeURIComponent(book.title)}"
+                        data-author="${encodeURIComponent(book.authors?.join(', ') || '작가 미상')}"
+                        data-cover="${encodeURIComponent(book.cover_url || '')}">
+                        <i class="fa-solid fa-star"></i> 리뷰
+                    </button>
+                    <button class="btn-card-action outline btn-reset-status" 
+                        data-id="${book.id}"
+                        data-title="${encodeURIComponent(book.title)}"
+                        title="독서 상태 다시 읽기로 변경"
+                        style="max-width: 32px; min-width: 32px; padding: 0;">
+                        <i class="fa-solid fa-rotate-left"></i>
+                    </button>
                 </div>
             `;
         }
@@ -338,6 +363,41 @@ function bindLibraryActions() {
             toggleReviewModal(true);
         });
     });
+
+    // Reset status back to reading click handler
+    libraryGrid.querySelectorAll('.btn-reset-status').forEach(btn => {
+        btn.addEventListener('click', async (e) => {
+            const btnEl = e.currentTarget;
+            const bookId = btnEl.dataset.id;
+            const title = decodeURIComponent(btnEl.dataset.title);
+            
+            btnEl.disabled = true;
+            btnEl.innerHTML = '<i class="fa-solid fa-circle-notch fa-spin"></i>';
+            
+            try {
+                const { error } = await supabase
+                    .from('books')
+                    .update({
+                        status: 'reading',
+                        current_page: 0,
+                        updated_at: new Date().toISOString()
+                    })
+                    .eq('id', bookId);
+                    
+                if (error) throw error;
+                
+                showToast(`"${title}" 도서 상태를 '읽는 중'으로 변경하고 진행도를 초기화했습니다!`, 'info');
+                
+                fetchAndRenderLibrary();
+                window.dispatchEvent(new CustomEvent('dashboard-updated'));
+            } catch (err) {
+                console.error(err);
+                showToast('상태 변경 실패: ' + err.message, 'danger');
+                btnEl.disabled = false;
+                btnEl.innerHTML = '<i class="fa-solid fa-rotate-left"></i>';
+            }
+        });
+    });
 }
 
 // Handle progress recording form submission
@@ -385,6 +445,8 @@ async function handleProgressSubmit(e) {
         
         if (autoComplete) {
             updatePayload.status = 'completed';
+        } else {
+            updatePayload.status = 'reading'; // revert/set to reading status if pages are modified
         }
         
         const { error: updateError } = await supabase

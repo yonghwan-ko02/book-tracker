@@ -207,7 +207,7 @@ async function executeSearch(isGenreSwitch = false) {
     searchErrorMessage.classList.add('hidden');
     
     try {
-        let apiQuery = encodeURIComponent(keyword);
+        let queryStr = keyword;
         
         // Append subject parameter according to Google Books standard tags
         if (currentGenreFilter) {
@@ -219,11 +219,12 @@ async function executeSearch(isGenreSwitch = false) {
             else if (currentGenreFilter === 'self-help') googleSubject = 'self-help';
             
             if (googleSubject) {
-                apiQuery += `+subject:${googleSubject}`;
+                queryStr += ` subject:${googleSubject}`;
             }
         }
         
-        const response = await fetch(`https://www.googleapis.com/books/v1/volumes?q=${apiQuery}&maxResults=20&orderBy=relevance&projection=full`);
+        const apiQuery = encodeURIComponent(queryStr);
+        const response = await fetch(`https://www.googleapis.com/books/v1/volumes?q=${apiQuery}&maxResults=20&orderBy=relevance`);
         if (!response.ok) throw new Error('API 네트워크 통신 중 오류가 발생했습니다.');
         
         const data = await response.json();

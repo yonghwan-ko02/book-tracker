@@ -111,9 +111,12 @@ function updateCartBadges() {
     cartSummaryTotal.textContent = priceStr;
 }
 
-// Helper to assemble store direct links
-function getStoreLink(isbn, title, store) {
-    const keyword = isbn ? isbn : encodeURIComponent(title);
+// Helper to assemble store direct links (Searching by Title + Author is 99% more accurate on Korean sites!)
+function getStoreLink(isbn, title, authors, store) {
+    const firstAuthor = (authors && Array.isArray(authors) && authors.length > 0) ? authors[0] : '';
+    const query = `${title} ${firstAuthor}`.trim();
+    const keyword = encodeURIComponent(query);
+    
     if (store === 'kyobo') {
         return `https://search.kyobobook.co.kr/search?keyword=${keyword}`;
     } else if (store === 'aladin') {
@@ -130,11 +133,9 @@ function renderCartList() {
         const row = document.createElement('div');
         row.className = 'cart-item';
         
-        const isbnText = item.isbn ? `ISBN: ${item.isbn}` : 'ISBN 정보 없음';
-        
         // Dynamic bookstore search hrefs
-        const kyoboUrl = getStoreLink(item.isbn, item.title, 'kyobo');
-        const aladinUrl = getStoreLink(item.isbn, item.title, 'aladin');
+        const kyoboUrl = getStoreLink(item.isbn, item.title, item.authors, 'kyobo');
+        const aladinUrl = getStoreLink(item.isbn, item.title, item.authors, 'aladin');
         
         row.innerHTML = `
             <img src="${item.cover_url || 'https://images.unsplash.com/photo-1543002588-bfa74002ed7e?auto=format&fit=crop&q=80&w=200&h=280'}" alt="${item.title}" class="cart-item-cover" loading="lazy">
@@ -197,18 +198,24 @@ function bindCartActions() {
     });
 }
 
-// Redirect user to official Korean bookstores in separate tabs
+// Redirect user to official Korean bookstores in separate tabs safely
 function handleBulkCheckout(store) {
     if (cartItems.length === 0) {
         showToast('장바구니가 비어 있습니다. 먼저 구매할 책을 검색해 담아 주세요!', 'warning');
         return;
     }
     
-    showToast(`장바구니 도서(${cartItems.length}권)의 구매를 인터넷 서점 탭으로 연결합니다!`, 'success');
+    const storeName = store === 'kyobo' ? '교보문고' : '알라딘';
     
-    // For each book item, open bookstore link in a new browser tab
-    cartItems.forEach(item => {
-        const storeLink = getStoreLink(item.isbn, item.title, store);
-        window.open(storeLink, '_blank');
-    });
+    // To prevent browser block warnings on multiple window.open,
+    // open the first item, and notify user that they can open the rest manually via individual buttons
+    const firstItem = cartItems[0];
+    const firstLink = getStoreLink(firstItem.isbn, firstItem.title, firstItem.authors, store);
+    window.open(firstLink, '_blank');
+    
+    if (cartItems.length > 1) {
+        showToast(`브라우저 보안으로 1번째 도서의 ${storeName} 구매 페이지가 열렸습니다. 나머지 도서들은 리스트의 개별 연동 버튼을 클릭해 주세요!`, 'info');
+    } else {
+        showToast(`도서 구매를 위해 ${storeName} 페이지로 이동합니다!`, 'success');
+    }
 }

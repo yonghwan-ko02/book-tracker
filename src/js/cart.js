@@ -112,10 +112,10 @@ function updateCartBadges() {
     cartSummaryTotal.textContent = priceStr;
 }
 
-// Helper to assemble store direct links (Searching by Title + Author is 99% more accurate on Korean sites!)
+// Helper to assemble store direct links (Use ISBN if available for 100% accuracy, fallback to Title+Author)
 function getStoreLink(isbn, title, authors, store) {
     const firstAuthor = (authors && Array.isArray(authors) && authors.length > 0) ? authors[0] : '';
-    const query = `${title} ${firstAuthor}`.trim();
+    const query = isbn ? isbn : `${title} ${firstAuthor}`.trim();
     const keyword = encodeURIComponent(query);
     
     if (store === 'kyobo') {

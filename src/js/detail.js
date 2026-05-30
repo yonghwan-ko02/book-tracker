@@ -501,13 +501,12 @@ async function enrichBookDetails(isbn) {
     try {
         const aladinApiKey = localStorage.getItem('aladin_api_key') || 'ttbclassic1138002'; // Demo/Universal Public Key
         const lookupUrl = `http://www.aladin.co.kr/ttb/api/ItemLookUp.aspx?ttbkey=${aladinApiKey}&itemIdType=ISBN13&ItemId=${isbn}&output=js&Version=20131101`;
-        const proxyUrl = `https://api.allorigins.win/get?url=${encodeURIComponent(lookupUrl)}`;
+        const proxyUrl = `https://corsproxy.io/?${encodeURIComponent(lookupUrl)}`;
         
         const response = await fetch(proxyUrl);
         if (!response.ok) return;
         
-        const wrapper = await response.json();
-        let text = wrapper.contents;
+        let text = await response.text();
         if (!text) return;
         
         text = text.trim();

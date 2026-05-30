@@ -210,7 +210,9 @@ function renderBooks(books) {
                     data-id="${book.id}"
                     data-title="${encodeURIComponent(book.title)}"
                     data-author="${encodeURIComponent(book.authors?.join(', ') || '작가 미상')}"
-                    data-cover="${encodeURIComponent(book.cover_url || '')}">
+                    data-cover="${encodeURIComponent(book.cover_url || '')}"
+                    data-review="${encodeURIComponent(book.review || '')}"
+                    data-rating="${book.rating || 5}">
                     <i class="fa-solid fa-circle-check"></i> 완독
                 </button>
             `;
@@ -243,8 +245,10 @@ function renderBooks(books) {
                         data-id="${book.id}"
                         data-title="${encodeURIComponent(book.title)}"
                         data-author="${encodeURIComponent(book.authors?.join(', ') || '작가 미상')}"
-                        data-cover="${encodeURIComponent(book.cover_url || '')}">
-                        <i class="fa-solid fa-star"></i> 리뷰
+                        data-cover="${encodeURIComponent(book.cover_url || '')}"
+                        data-review="${encodeURIComponent(book.review || '')}"
+                        data-rating="${book.rating || 5}">
+                        <i class="fa-solid fa-star"></i> 리뷰 수정
                     </button>
                     <button class="btn-card-action outline btn-reset-status" 
                         data-id="${book.id}"
@@ -353,7 +357,7 @@ function bindLibraryActions() {
         });
     });
     
-    // Complete Reading click handler
+    // Complete Reading / Edit Review click handler
     libraryGrid.querySelectorAll('.btn-finish-reading').forEach(btn => {
         btn.addEventListener('click', (e) => {
             const btnEl = e.currentTarget;
@@ -362,10 +366,15 @@ function bindLibraryActions() {
             document.getElementById('reviewBookTitle').textContent = decodeURIComponent(btnEl.dataset.title);
             document.getElementById('reviewBookAuthor').textContent = decodeURIComponent(btnEl.dataset.author);
             document.getElementById('reviewBookCover').src = decodeURIComponent(btnEl.dataset.cover);
-            document.getElementById('reviewContent').value = '';
             
-            // Check star 1 as default
-            document.getElementById('star1').checked = true;
+            const reviewText = btnEl.dataset.review ? decodeURIComponent(btnEl.dataset.review) : '';
+            const rating = btnEl.dataset.rating ? parseInt(btnEl.dataset.rating) : 5;
+            
+            document.getElementById('reviewContent').value = reviewText;
+            
+            const starInput = document.getElementById(`star${rating}`);
+            if (starInput) starInput.checked = true;
+            else document.getElementById('star5').checked = true;
             
             toggleReviewModal(true);
         });

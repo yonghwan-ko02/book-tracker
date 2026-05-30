@@ -205,17 +205,69 @@ function handleBulkCheckout(store) {
         return;
     }
     
+    // Launch the premium Multi-Purchase Checkout Hub Modal!
+    openCheckoutHubModal(store);
+}
+
+// Draw a gorgeous Checkout Hub Modal to bypass browser popup blocking
+function openCheckoutHubModal(store) {
     const storeName = store === 'kyobo' ? '교보문고' : '알라딘';
+    const accentColor = store === 'kyobo' ? '#00874a' : '#ec2227';
+    const storeIcon = store === 'kyobo' ? 'fa-book-open' : 'fa-cart-shopping';
     
-    // To prevent browser block warnings on multiple window.open,
-    // open the first item, and notify user that they can open the rest manually via individual buttons
-    const firstItem = cartItems[0];
-    const firstLink = getStoreLink(firstItem.isbn, firstItem.title, firstItem.authors, store);
-    window.open(firstLink, '_blank');
+    // Create Modal Element dynamically
+    const modal = document.createElement('div');
+    modal.className = 'modal-overlay active';
+    modal.id = 'checkoutHubModal';
+    modal.style.zIndex = '2000';
     
-    if (cartItems.length > 1) {
-        showToast(`브라우저 보안으로 1번째 도서의 ${storeName} 구매 페이지가 열렸습니다. 나머지 도서들은 리스트의 개별 연동 버튼을 클릭해 주세요!`, 'info');
-    } else {
-        showToast(`도서 구매를 위해 ${storeName} 페이지로 이동합니다!`, 'success');
-    }
+    let itemsHtml = '';
+    cartItems.forEach((item, index) => {
+        const link = getStoreLink(item.isbn, item.title, item.authors, store);
+        const author = (item.authors && Array.isArray(item.authors) && item.authors.length > 0) ? item.authors[0] : '작가 미상';
+        
+        itemsHtml += `
+            <div style="display: flex; align-items: center; justify-content: space-between; padding: 12px; background: rgba(255,255,255,0.02); border: 1px solid var(--border-color); border-radius: var(--border-radius-sm); margin-bottom: 10px; gap: 12px;">
+                <div style="display: flex; align-items: center; gap: 12px; overflow: hidden; flex-grow: 1;">
+                    <img src="${item.cover_url || 'https://images.unsplash.com/photo-1543002588-bfa74002ed7e?auto=format&fit=crop&q=80&w=200&h=280'}" style="width: 40px; height: 56px; object-fit: cover; border-radius: 4px; box-shadow: 0 2px 6px rgba(0,0,0,0.4);" />
+                    <div style="overflow: hidden;">
+                        <h4 style="font-size: 13px; font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; color: white; text-align: left;" title="${item.title}">${item.title}</h4>
+                        <p style="font-size: 11px; color: var(--text-secondary); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; text-align: left;">${author}</p>
+                    </div>
+                </div>
+                <a href="${link}" target="_blank" class="btn-card-action" style="background: ${accentColor}; color: white; height: 32px; font-size: 11px; padding: 0 14px; font-weight: 600; border-radius: 6px; display: flex; align-items: center; gap: 6px; flex-shrink: 0; justify-content: center; width: auto; min-width: 65px;">
+                    <i class="fa-solid fa-arrow-up-right-from-square"></i> 이동
+                </a>
+            </div>
+        `;
+    });
+    
+    modal.innerHTML = `
+        <div class="modal-card" style="max-width: 460px; padding: 24px; border-color: ${accentColor}; box-shadow: 0 10px 40px rgba(0,0,0,0.6); position: relative;">
+            <button class="modal-close" id="btnCloseCheckoutHub"><i class="fa-solid fa-xmark"></i></button>
+            <h3 class="modal-title" style="font-size: 18px; margin-bottom: 6px; display: flex; align-items: center; gap: 10px;">
+                <i class="fa-solid ${storeIcon}" style="color: ${accentColor}"></i> ${storeName} 다중 구매 연동 센터
+            </h3>
+            <p class="modal-desc" style="margin-bottom: 20px; font-size: 12px; line-height: 1.5; color: var(--text-secondary);">
+                크롬 등 최신 브라우저 보안 규정상 한 번에 여러 탭을 여는 것이 차단됩니다. 아래 리스트의 <strong>[이동]</strong> 버튼을 누르시면 안전하고 빠르게 해당 상품 페이지가 연동됩니다.
+            </p>
+            <div style="max-height: 280px; overflow-y: auto; padding-right: 4px;">
+                ${itemsHtml}
+            </div>
+            <div style="margin-top: 16px;">
+                <p style="font-size: 10px; color: var(--text-muted); line-height: 1.4; text-align: center;">
+                    * 각 도서의 제목과 저자명을 기반으로 국내 공식 서점에서 정확한 도서를 찾아 드립니다.
+                </p>
+            </div>
+        </div>
+    `;
+    
+    document.body.appendChild(modal);
+    
+    // Bind Close Event
+    const closeBtn = modal.querySelector('#btnCloseCheckoutHub');
+    closeBtn.addEventListener('click', () => {
+        modal.classList.remove('active');
+        setTimeout(() => modal.remove(), 300);
+    });
 }

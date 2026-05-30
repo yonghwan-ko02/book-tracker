@@ -1,0 +1,492 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>LuminaRead — AI Book Tracker & Cart</title>
+    <meta name="description" content="LuminaRead - 바닐라 자바스크립트와 Supabase로 구현한 프리미엄 도서 검색, 독서 상황 저장, 독서 로그 및 실시간 온라인 구매 연동 서비스">
+    
+    <!-- Google Fonts: Inter & Outfit -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Outfit:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    
+    <!-- FontAwesome Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    
+    <!-- Custom CSS -->
+    <link rel="stylesheet" href="src/css/styles.css">
+</head>
+<body>
+    <!-- Background Glow Effects -->
+    <div class="bg-glow bg-glow-1"></div>
+    <div class="bg-glow bg-glow-2"></div>
+
+    <!-- Application Shell -->
+    <div class="app-container">
+        
+        <!-- Sidebar Navigation -->
+        <aside class="app-sidebar" id="appSidebar">
+            <div class="sidebar-brand">
+                <i class="fa-solid fa-book-open-reader brand-icon"></i>
+                <span class="brand-name">LuminaRead</span>
+            </div>
+            
+            <nav class="sidebar-nav">
+                <a href="#dashboard" class="nav-item active" id="navDashboard" data-panel="dashboard">
+                    <i class="fa-solid fa-chart-line"></i>
+                    <span>대시보드</span>
+                </a>
+                <a href="#search" class="nav-item" id="navSearch" data-panel="search">
+                    <i class="fa-solid fa-magnifying-glass"></i>
+                    <span>도서 검색</span>
+                </a>
+                <a href="#library" class="nav-item" id="navLibrary" data-panel="library">
+                    <i class="fa-solid fa-book-bookmark"></i>
+                    <span>내 서재</span>
+                </a>
+                <a href="#cart" class="nav-item" id="navCart" data-panel="cart">
+                    <i class="fa-solid fa-cart-shopping"></i>
+                    <span>장바구니</span>
+                    <span class="cart-badge hidden" id="cartBadgeCount">0</span>
+                </a>
+            </nav>
+            
+            <!-- Sidebar User Profile -->
+            <div class="sidebar-profile" id="sidebarProfile">
+                <div class="profile-info-loading" id="profileLoading">
+                    <div class="spinner-small"></div>
+                </div>
+                <div class="profile-info-loaded hidden" id="profileLoaded">
+                    <div class="profile-avatar">
+                        <i class="fa-solid fa-circle-user"></i>
+                    </div>
+                    <div class="profile-details">
+                        <span class="profile-name" id="userNameText">게스트</span>
+                        <span class="profile-role" id="userEmailText">demo@luminaread.com</span>
+                    </div>
+                    <button class="btn-logout" id="btnLogout" title="로그아웃">
+                        <i class="fa-solid fa-right-from-bracket"></i>
+                    </button>
+                </div>
+                <div class="profile-info-guest" id="profileGuest">
+                    <button class="btn-login-trigger" id="btnLoginTrigger">
+                        <i class="fa-solid fa-right-to-bracket"></i>
+                        <span>로그인 / 가입</span>
+                    </button>
+                </div>
+            </div>
+        </aside>
+        
+        <!-- Main Content Area -->
+        <main class="app-main">
+            <!-- Header bar -->
+            <header class="app-header">
+                <div class="header-title-container">
+                    <h1 class="header-title" id="currentPanelTitle">대시보드</h1>
+                    <p class="header-subtitle" id="currentPanelSubtitle">독서 데이터를 분석하고 관리합니다.</p>
+                </div>
+                <div class="header-actions">
+                    <div class="header-quote" id="headerQuoteText">
+                        "책 없는 방은 영혼 없는 육체와 같다." – 키케로
+                    </div>
+                    <div class="header-notification">
+                        <i class="fa-regular fa-bell"></i>
+                        <span class="notification-indicator"></span>
+                    </div>
+                </div>
+            </header>
+            
+            <!-- Content Panels -->
+            <div class="panel-container">
+                
+                <!-- 1. DASHBOARD PANEL -->
+                <section class="content-panel active" id="panelDashboard">
+                    <!-- Stats Grid -->
+                    <div class="stats-grid">
+                        <div class="stat-card">
+                            <div class="stat-header">
+                                <span class="stat-title">내 독서 진행도</span>
+                                <div class="stat-icon-wrapper purple">
+                                    <i class="fa-solid fa-percentage"></i>
+                                </div>
+                            </div>
+                            <div class="stat-value" id="statsProgressPct">0%</div>
+                            <div class="stat-progress-bar">
+                                <div class="stat-progress-fill purple" id="statsProgressFill" style="width: 0%"></div>
+                            </div>
+                            <div class="stat-footer" id="statsProgressFooter">총 0권 중 0권 완독</div>
+                        </div>
+                        
+                        <div class="stat-card">
+                            <div class="stat-header">
+                                <span class="stat-title">읽는 중인 책</span>
+                                <div class="stat-icon-wrapper blue">
+                                    <i class="fa-solid fa-book-open"></i>
+                                </div>
+                            </div>
+                            <div class="stat-value" id="statsReadingCount">0</div>
+                            <div class="stat-footer" id="statsReadingFooter">현재 진행중인 도서 수</div>
+                        </div>
+                        
+                        <div class="stat-card">
+                            <div class="stat-header">
+                                <span class="stat-title">읽고 싶은 책</span>
+                                <div class="stat-icon-wrapper orange">
+                                    <i class="fa-solid fa-heart"></i>
+                                </div>
+                            </div>
+                            <div class="stat-value" id="statsToReadCount">0</div>
+                            <div class="stat-footer" id="statsToReadFooter">찜해둔 독서 버킷리스트</div>
+                        </div>
+                        
+                        <div class="stat-card">
+                            <div class="stat-header">
+                                <span class="stat-title">누적 독서량</span>
+                                <div class="stat-icon-wrapper emerald">
+                                    <i class="fa-solid fa-bookmark"></i>
+                                </div>
+                            </div>
+                            <div class="stat-value" id="statsTotalPages">0 <span class="unit">p</span></div>
+                            <div class="stat-footer" id="statsTotalPagesFooter">총 읽은 누적 페이지 수</div>
+                        </div>
+                    </div>
+
+                    <!-- Dashboard Main Sections -->
+                    <div class="dashboard-layout">
+                        <!-- Left Content: Library Quick View & Annual Goal -->
+                        <div class="dashboard-left">
+                            <!-- Annual Goal Card -->
+                            <div class="dashboard-card goal-card">
+                                <div class="card-header">
+                                    <h3><i class="fa-solid fa-trophy text-gold"></i> 2026년 독서 목표</h3>
+                                    <button class="btn-text" id="btnEditGoal"><i class="fa-solid fa-pen-to-square"></i> 수정</button>
+                                </div>
+                                <div class="goal-content">
+                                    <div class="goal-circle">
+                                        <svg class="progress-ring" width="120" height="120">
+                                            <circle class="progress-ring-circle-bg" stroke="rgba(255,255,255,0.06)" stroke-width="8" fill="transparent" r="50" cx="60" cy="60"/>
+                                            <circle class="progress-ring-circle" id="goalProgressRing" stroke="var(--primary-accent)" stroke-width="8" fill="transparent" r="50" cx="60" cy="60" stroke-dasharray="314.16" stroke-dashoffset="314.16"/>
+                                        </svg>
+                                        <div class="goal-circle-text">
+                                            <span class="pct" id="goalProgressPct">0%</span>
+                                            <span class="sub" id="goalCountRatio">0 / 12권</span>
+                                        </div>
+                                    </div>
+                                    <div class="goal-details">
+                                        <p class="goal-desc" id="goalDescText">올해 목표한 도서 12권 중 0권을 완료했습니다.</p>
+                                        <div class="goal-motivational" id="goalMotivation">멋진 독서 여정을 시작해보세요!</div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Currently Reading Showcase -->
+                            <div class="dashboard-card showcase-card">
+                                <div class="card-header">
+                                    <h3><i class="fa-solid fa-graduation-cap text-blue"></i> 현재 읽는 중인 베스트 도서</h3>
+                                </div>
+                                <div class="showcase-content" id="dashboardActiveShowcase">
+                                    <div class="showcase-empty">
+                                        <i class="fa-solid fa-book-open-reader"></i>
+                                        <p>현재 읽고 있는 도서가 없습니다.<br>내 서재에서 독서를 시작해보세요!</p>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- AI Book Recommendation Card -->
+                            <div class="dashboard-card ai-recommendation-card" style="margin-top: 24px;">
+                                <div class="card-header">
+                                    <h3><i class="fa-solid fa-wand-magic-sparkles text-purple animate-pulse"></i> Lumina AI 맞춤 도서 추천</h3>
+                                    <span class="badge-ai-status" id="aiStatusBadge" style="font-size: 10px; background: rgba(139, 92, 246, 0.15); color: var(--primary-accent); padding: 3px 8px; border-radius: 20px; border: 1px solid rgba(139, 92, 246, 0.3);"><i class="fa-solid fa-circle-check"></i> 분석 완료</span>
+                                </div>
+                                <div class="ai-content">
+                                    <p class="ai-analysis-summary" id="aiAnalysisText" style="font-size: 13px; color: var(--text-secondary); line-height: 1.5; margin-bottom: 16px;">최근 독서 이력 및 평점을 분석하여 회원님의 취향을 저격할 책을 추천해 드립니다.</p>
+                                    <div class="ai-books-grid" id="aiRecommendedGrid" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 14px;">
+                                        <div class="spinner-small" style="margin: 20px auto;"></div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Right Content: Recent Activity Timeline -->
+                        <div class="dashboard-right">
+                            <div class="dashboard-card timeline-card">
+                                <div class="card-header">
+                                    <h3><i class="fa-solid fa-clock-rotate-left text-purple"></i> 최근 독서 타임라인</h3>
+                                </div>
+                                <div class="timeline-container" id="dashboardTimeline">
+                                    <div class="timeline-empty">
+                                        <p>최근 기록된 독서 기록이 없습니다.</p>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </section>
+                
+                <!-- 2. BOOK SEARCH PANEL -->
+                <section class="content-panel" id="panelSearch">
+                    <!-- Search Header Bar -->
+                    <div class="search-bar-container">
+                        <div class="search-input-wrapper">
+                            <i class="fa-solid fa-magnifying-glass search-icon"></i>
+                            <input type="text" id="inputSearchQuery" placeholder="도서 제목, 저자명 또는 출판사를 검색하세요..." autocomplete="off">
+                            <button class="btn-clear hidden" id="btnSearchClear"><i class="fa-solid fa-xmark"></i></button>
+                        </div>
+                        <button class="btn-primary btn-search" id="btnSearchSubmit">검색하기</button>
+                    </div>
+
+                    <!-- Category Chips -->
+                    <div class="search-category-chips">
+                        <button class="chip active" data-genre="">전체</button>
+                        <button class="chip" data-genre="novel">소설</button>
+                        <button class="chip" data-genre="humanities">인문학</button>
+                        <button class="chip" data-genre="it">컴퓨터/IT</button>
+                        <button class="chip" data-genre="business">경영/경제</button>
+                        <button class="chip" data-genre="self-help">자기계발</button>
+                    </div>
+
+                    <!-- Search Loading / Results -->
+                    <div class="search-status-wrapper hidden" id="searchStatusWrapper">
+                        <div class="spinner" id="searchSpinner"></div>
+                        <div class="search-error-message hidden" id="searchErrorMessage">
+                            <i class="fa-solid fa-triangle-exclamation"></i>
+                            <p id="searchErrorText">오류가 발생했습니다. 다시 시도해 주세요.</p>
+                        </div>
+                    </div>
+
+                    <!-- Empty state -->
+                    <div class="search-empty-state" id="searchEmptyState">
+                        <i class="fa-solid fa-book"></i>
+                        <h3>어떤 책을 찾으시나요?</h3>
+                        <p>수백만 권의 데이터베이스에서 원하는 책을 즉시 찾고 저장해보세요.</p>
+                    </div>
+
+                    <!-- Results Grid -->
+                    <div class="books-grid hidden" id="searchGrid"></div>
+                </section>
+                
+                <!-- 3. MY LIBRARY PANEL -->
+                <section class="content-panel" id="panelLibrary">
+                    <!-- Library Filter Tabs -->
+                    <div class="library-filter-bar" style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 12px;">
+                        <div class="library-tabs">
+                            <button class="tab-btn active" data-status="all">
+                                <span>전체 도서</span>
+                                <span class="tab-badge" id="libraryBadgeAll">0</span>
+                            </button>
+                            <button class="tab-btn" data-status="to_read">
+                                <span>읽고 싶은 책</span>
+                                <span class="tab-badge" id="libraryBadgeToRead">0</span>
+                            </button>
+                            <button class="tab-btn" data-status="reading">
+                                <span>읽는 중</span>
+                                <span class="tab-badge" id="libraryBadgeReading">0</span>
+                            </button>
+                            <button class="tab-btn" data-status="completed">
+                                <span>완독</span>
+                                <span class="tab-badge" id="libraryBadgeCompleted">0</span>
+                            </button>
+                        </div>
+                        <div class="library-actions" style="display: flex; gap: 8px;">
+                            <button class="btn-secondary" id="btnExportNotionCsv" title="노션 데이터베이스 업로드용 CSV 다운로드" style="padding: 8px 14px; font-size: 12px; height: auto;">
+                                <i class="fa-solid fa-file-csv" style="color: var(--success)"></i> CSV 다운로드
+                            </button>
+                            <button class="btn-secondary" id="btnCopyNotionMarkdown" title="노션에 즉시 붙여넣기 할 수 있는 독서 포트폴리오 복사" style="padding: 8px 14px; font-size: 12px; height: auto;">
+                                <i class="fa-brands fa-notion" style="color: var(--primary-accent)"></i> 노션 포트폴리오 복사
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- Library Empty State -->
+                    <div class="library-empty-state hidden" id="libraryEmptyState">
+                        <i class="fa-solid fa-book-journal-whills"></i>
+                        <h3>서재가 비어 있습니다.</h3>
+                        <p>도서 검색 패널에서 원하는 도서를 찾아 서재에 추가해 보세요!</p>
+                        <button class="btn-secondary" id="btnGoToSearch"><i class="fa-solid fa-magnifying-glass"></i> 책 검색하러 가기</button>
+                    </div>
+
+                    <!-- Library Grid -->
+                    <div class="books-grid" id="libraryGrid"></div>
+                </section>
+                
+                <!-- 4. SHOPPING CART PANEL -->
+                <section class="content-panel" id="panelCart">
+                    <div class="cart-layout">
+                        <!-- Cart Items Area -->
+                        <div class="cart-items-wrapper">
+                            <div class="cart-empty-state" id="cartEmptyState">
+                                <i class="fa-solid fa-cart-arrow-down"></i>
+                                <h3>장바구니가 비어 있습니다</h3>
+                                <p>원하는 책을 담아두고 실시간 실구매 가격을 조회하거나 도서 구매를 연동해보세요.</p>
+                            </div>
+                            <div class="cart-list hidden" id="cartList"></div>
+                        </div>
+
+                        <!-- Cart Summary Card -->
+                        <div class="cart-summary-wrapper">
+                            <div class="cart-summary-card">
+                                <h3>주문 정보 요약</h3>
+                                <div class="summary-divider"></div>
+                                <div class="summary-row">
+                                    <span>담은 도서 수</span>
+                                    <span id="cartSummaryCount">0권</span>
+                                </div>
+                                <div class="summary-row">
+                                    <span>도서 예상 정가</span>
+                                    <span id="cartSummaryPrice">0원</span>
+                                </div>
+                                <div class="summary-row delivery">
+                                    <span>배송비 (국내 기준)</span>
+                                    <span>무료</span>
+                                </div>
+                                <div class="summary-divider"></div>
+                                <div class="summary-total">
+                                    <span>최종 예상 금액</span>
+                                    <span class="total-price" id="cartSummaryTotal">0원</span>
+                                </div>
+                                
+                                <div class="purchase-buttons-stack">
+                                    <button class="btn-checkout-kyobo" id="btnCheckoutKyobo">
+                                        <i class="fa-solid fa-arrow-up-right-from-square"></i>
+                                        <span>교보문고 구매 링크 연동</span>
+                                    </button>
+                                    <button class="btn-checkout-aladin" id="btnCheckoutAladin">
+                                        <i class="fa-solid fa-arrow-up-right-from-square"></i>
+                                        <span>알라딘 구매 링크 연동</span>
+                                    </button>
+                                </div>
+                                <p class="checkout-notice">* ISBN을 기준으로 국내 공식 대형 인터넷 서점(교보문고, 알라딘)의 통합 검색창으로 연동되어 안전하고 저렴하게 실제 도서를 구매하실 수 있습니다.</p>
+                            </div>
+                        </div>
+                    </div>
+                </section>
+
+            </div>
+        </main>
+    </div>
+
+    <!-- AUTH MODAL -->
+    <div class="modal-overlay hidden" id="authModal">
+        <div class="modal-card auth-modal-card">
+            <button class="modal-close" id="btnAuthModalClose"><i class="fa-solid fa-xmark"></i></button>
+            <div class="auth-tabs">
+                <button class="auth-tab-btn active" id="tabBtnLogin" data-mode="login">로그인</button>
+                <button class="auth-tab-btn" id="tabBtnSignup" data-mode="signup">회원가입</button>
+            </div>
+            
+            <form class="auth-form" id="authForm">
+                <div class="form-group">
+                    <label for="authEmail"><i class="fa-solid fa-envelope"></i> 이메일 주소</label>
+                    <input type="email" id="authEmail" required placeholder="example@email.com">
+                </div>
+                <div class="form-group">
+                    <label for="authPassword"><i class="fa-solid fa-lock"></i> 비밀번호 (6자 이상)</label>
+                    <input type="password" id="authPassword" required placeholder="••••••••">
+                </div>
+                
+                <button type="submit" class="btn-primary btn-block" id="btnAuthSubmit">로그인</button>
+            </form>
+            
+            <div class="auth-divider">
+                <span>또는</span>
+            </div>
+            
+            <button class="btn-accent-glow btn-block" id="btnDemoLogin">
+                <i class="fa-solid fa-bolt"></i> 1초만에 데모 계정 로그인
+            </button>
+            <p class="demo-tip">* 귀찮은 회원가입 없이 즉시 대시보드와 서재, 장바구니 기능을 풀옵션으로 체험해보실 수 있습니다.</p>
+        </div>
+    </div>
+
+    <!-- UPDATE PROGRESS MODAL -->
+    <div class="modal-overlay hidden" id="progressModal">
+        <div class="modal-card">
+            <button class="modal-close" id="btnProgressModalClose"><i class="fa-solid fa-xmark"></i></button>
+            <h3 class="modal-title"><i class="fa-solid fa-pen-nib"></i> 독서 상황 상세 기록</h3>
+            <div class="progress-book-info">
+                <img src="" alt="Book Cover" class="progress-book-cover" id="progressBookCover">
+                <div class="progress-book-details">
+                    <h4 id="progressBookTitle">책 제목</h4>
+                    <p id="progressBookAuthor">저자명</p>
+                </div>
+            </div>
+            <form class="progress-form" id="progressForm">
+                <input type="hidden" id="progressBookId">
+                <div class="form-group">
+                    <label for="progressPages"><i class="fa-solid fa-book-open"></i> 현재까지 읽은 페이지</label>
+                    <div class="page-inputs">
+                        <input type="number" id="progressCurrentPage" min="0" required placeholder="0">
+                        <span class="slash">/</span>
+                        <input type="number" id="progressTotalPages" min="1" required placeholder="전체 페이지">
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label for="progressNotes"><i class="fa-solid fa-comment-dots"></i> 한 줄 메모 / 생각 기록</label>
+                    <textarea id="progressNotes" rows="3" placeholder="오늘 읽은 내용 중 기억하고 싶은 문장이나 느낀 점을 간단히 적어보세요..."></textarea>
+                </div>
+                <button type="submit" class="btn-primary btn-block">저장하기</button>
+            </form>
+        </div>
+    </div>
+
+    <!-- GOAL EDIT MODAL -->
+    <div class="modal-overlay hidden" id="goalModal">
+        <div class="modal-card">
+            <button class="modal-close" id="btnGoalModalClose"><i class="fa-solid fa-xmark"></i></button>
+            <h3 class="modal-title"><i class="fa-solid fa-trophy"></i> 연간 독서 목표 설정</h3>
+            <p class="modal-desc">올해 목표한 완독 도서 수를 설정하여 독서 동기부여를 높여보세요!</p>
+            <form class="goal-form" id="goalForm">
+                <div class="form-group">
+                    <label for="inputGoalNumber"><i class="fa-solid fa-book"></i> 목표 완독 권수 (연간)</label>
+                    <input type="number" id="inputGoalNumber" min="1" max="1000" required placeholder="12">
+                </div>
+                <button type="submit" class="btn-primary btn-block">목표 저장하기</button>
+            </form>
+        </div>
+    </div>
+
+    <!-- BOOK REVIEW MODAL -->
+    <div class="modal-overlay hidden" id="reviewModal">
+        <div class="modal-card">
+            <button class="modal-close" id="btnReviewModalClose"><i class="fa-solid fa-xmark"></i></button>
+            <h3 class="modal-title"><i class="fa-solid fa-star"></i> 도서 완독 및 평가</h3>
+            <div class="review-book-info">
+                <img src="" alt="Book Cover" class="review-book-cover" id="reviewBookCover">
+                <div class="review-book-details">
+                    <h4 id="reviewBookTitle">책 제목</h4>
+                    <p id="reviewBookAuthor">저자명</p>
+                </div>
+            </div>
+            <form class="review-form" id="reviewForm">
+                <input type="hidden" id="reviewBookId">
+                <div class="form-group">
+                    <label><i class="fa-solid fa-ranking-star"></i> 별점 평가</label>
+                    <div class="star-rating-widget">
+                        <input type="radio" id="star5" name="rating" value="5"><label for="star5" class="fa-solid fa-star"></label>
+                        <input type="radio" id="star4" name="rating" value="4"><label for="star4" class="fa-solid fa-star"></label>
+                        <input type="radio" id="star3" name="rating" value="3"><label for="star3" class="fa-solid fa-star"></label>
+                        <input type="radio" id="star2" name="rating" value="2"><label for="star2" class="fa-solid fa-star"></label>
+                        <input type="radio" id="star1" name="rating" value="1" checked><label for="star1" class="fa-solid fa-star"></label>
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label for="reviewContent"><i class="fa-solid fa-pen"></i> 독후감 / 한 줄 평</label>
+                    <textarea id="reviewContent" rows="4" placeholder="완독한 책의 핵심 감상평을 기록해보세요..."></textarea>
+                </div>
+                <button type="submit" class="btn-primary btn-block">저장하고 완독 처리</button>
+            </form>
+        </div>
+    </div>
+
+    <!-- TOAST NOTIFICATION CONTAINER -->
+    <div class="toast-container" id="toastContainer"></div>
+
+    <!-- Javascript Sources -->
+    <!-- Supabase Javascript CDN -->
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.39.8/dist/umd/supabase.js"></script>
+    
+    <!-- Custom JS Modules (Dynamic Loading as standard scripts or Modules) -->
+    <script type="module" src="src/js/app.js"></script>
+</body>
+</html>

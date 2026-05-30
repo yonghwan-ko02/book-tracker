@@ -1,6 +1,7 @@
 // Lumina AI - Intelligent Reading Analyzer & Book Recommender
 import { supabase } from './supabase.js';
 import { getCurrentUser, showToast, toggleAuthModal } from './auth.js';
+import { showBookDetail } from './detail.js';
 
 // Curated pool of high-quality recommendations mapping to user interests
 const RECOMMENDATION_POOL = [
@@ -208,6 +209,22 @@ function renderRecommendedGrid(books) {
     books.forEach(book => {
         const card = document.createElement('div');
         card.className = 'ai-recommended-book-card';
+        
+        // Card click triggers detailed modal
+        card.addEventListener('click', (e) => {
+            if (e.target.closest('.btn-card-action')) return;
+            showBookDetail({
+                title: book.title,
+                authors: book.authors,
+                cover_url: book.coverUrl,
+                publisher: book.publisher,
+                isbn: book.isbn,
+                total_pages: book.pageCount || 0,
+                purchase_url: book.infoLink,
+                description: book.reason
+            });
+        });
+        
         card.style.cssText = `
             background: rgba(255, 255, 255, 0.02);
             border: 1px solid var(--border-color);
@@ -217,6 +234,7 @@ function renderRecommendedGrid(books) {
             gap: 12px;
             align-items: center;
             transition: var(--transition-smooth);
+            cursor: pointer;
         `;
         
         card.innerHTML = `

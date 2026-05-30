@@ -234,6 +234,9 @@
                             <button class="btn-clear hidden" id="btnSearchClear"><i class="fa-solid fa-xmark"></i></button>
                         </div>
                         <button class="btn-primary btn-search" id="btnSearchSubmit">검색하기</button>
+                        <button class="btn-api-settings" id="btnApiSettings" title="도서 API 키 설정">
+                            <i class="fa-solid fa-gear"></i>
+                        </button>
                     </div>
 
                     <!-- Category Chips -->
@@ -476,6 +479,147 @@
                 </div>
                 <button type="submit" class="btn-primary btn-block">저장하고 완독 처리</button>
             </form>
+        </div>
+    </div>
+
+    <!-- API SETTINGS MODAL -->
+    <div class="modal-overlay hidden" id="apiSettingsModal">
+        <div class="modal-card">
+            <button class="modal-close" id="btnApiSettingsClose"><i class="fa-solid fa-xmark"></i></button>
+            <h3 class="modal-title"><i class="fa-solid fa-gear"></i> 도서 API 키 설정</h3>
+            <p class="modal-desc" style="margin-bottom: 20px; font-size: 13px; color: var(--text-secondary); line-height: 1.5;">한국 도서 검색의 정확도를 높이기 위해 카카오 책 API 또는 알라딘 OpenAPI 키를 등록할 수 있습니다. 키가 없어도 기본 구글/카카오 백업 파이프라인으로 즉시 검색이 가능합니다.</p>
+            <form class="api-settings-form" id="apiSettingsForm">
+                <div class="form-group" style="margin-bottom: 16px;">
+                    <label for="inputKakaoApiKey"><i class="fa-solid fa-key"></i> 카카오 REST API 키</label>
+                    <input type="password" id="inputKakaoApiKey" placeholder="KakaoAK REST_API_KEY 입력..." style="width: 100%; margin-top: 6px;">
+                    <small class="form-tip" style="display: block; margin-top: 6px; font-size: 11px; color: var(--text-muted);">
+                        <a href="https://developers.kakao.com/" target="_blank" rel="noopener noreferrer" style="color: var(--primary-accent); text-decoration: none;">카카오 개발자 센터</a>에서 회원가입 후 애플리케이션 등록 시 발급 가능
+                    </small>
+                </div>
+                <div class="form-group" style="margin-bottom: 20px;">
+                    <label for="inputAladinApiKey"><i class="fa-solid fa-key"></i> 알라딘 TTBKey</label>
+                    <input type="password" id="inputAladinApiKey" placeholder="TTBKey 입력..." style="width: 100%; margin-top: 6px;">
+                    <small class="form-tip" style="display: block; margin-top: 6px; font-size: 11px; color: var(--text-muted);">
+                        <a href="https://www.aladin.co.kr/ttb/wttb_admin_main.aspx" target="_blank" rel="noopener noreferrer" style="color: var(--primary-accent); text-decoration: none;">알라딘 TTB 웹서비스</a> 신청 시 발급 가능
+                    </small>
+                </div>
+                <button type="submit" class="btn-primary btn-block">설정 저장하기</button>
+            </form>
+        </div>
+    </div>
+
+    <!-- UNIVERSAL BOOK DETAIL MODAL -->
+    <div class="modal-overlay hidden" id="bookDetailModal">
+        <div class="modal-card book-detail-card">
+            <button class="modal-close" id="btnBookDetailClose"><i class="fa-solid fa-xmark"></i></button>
+            <div class="detail-modal-layout">
+                <!-- Left Section: Cover, Status Badge, Quick Actions -->
+                <div class="detail-left">
+                    <div class="detail-cover-wrapper">
+                        <img src="https://images.unsplash.com/photo-1543002588-bfa74002ed7e?auto=format&fit=crop&q=80&w=200&h=280" alt="Book Cover" class="detail-cover" id="detailBookCover">
+                        <div class="detail-status-badge-container">
+                            <span class="detail-status-badge" id="detailStatusBadge"><i class="fa-solid fa-hourglass-start"></i> 읽기 전</span>
+                        </div>
+                    </div>
+                    <div class="detail-actions-stack">
+                        <button class="btn-primary btn-block" id="btnDetailAddLibrary"><i class="fa-solid fa-plus"></i> 내 서재에 추가</button>
+                        <button class="btn-secondary btn-block" id="btnDetailAddCart"><i class="fa-solid fa-cart-shopping"></i> 장바구니 담기</button>
+                        
+                        <!-- Local Actions (Visible when in library) -->
+                        <div class="local-actions-group hidden" id="detailLocalActions">
+                            <div class="status-selector-group">
+                                <label for="detailStatusSelect"><i class="fa-solid fa-arrow-rotate-left"></i> 독서 상태 변경</label>
+                                <select id="detailStatusSelect" class="form-select">
+                                    <option value="to_read">읽고 싶은 책</option>
+                                    <option value="reading">읽는 중</option>
+                                    <option value="completed">완독</option>
+                                </select>
+                            </div>
+                            <button class="btn-accent-glow btn-block" id="btnDetailLogProgress" style="margin-top: 8px;">
+                                <i class="fa-solid fa-pen-nib"></i> 진척도 기록하기
+                            </button>
+                            <button class="btn-success btn-block hidden" id="btnDetailReview" style="margin-top: 8px;">
+                                <i class="fa-solid fa-star"></i> 완독 별점 & 리뷰 작성
+                            </button>
+                            <button class="btn-danger btn-block" id="btnDetailRemoveLibrary" style="margin-top: 8px; background: rgba(239, 68, 68, 0.1); border: 1px solid rgba(239, 68, 68, 0.3); color: #f87171;">
+                                <i class="fa-solid fa-trash-can"></i> 서재에서 삭제
+                            </button>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Right Section: Metadata, Synopsis, Reading Statistics / Review -->
+                <div class="detail-right">
+                    <h2 class="detail-title" id="detailBookTitle">도서 제목</h2>
+                    <p class="detail-author-publisher">
+                        <span class="author" id="detailBookAuthor">저자명</span>
+                        <span class="divider">|</span>
+                        <span class="publisher" id="detailBookPublisher">출판사</span>
+                        <span class="divider">|</span>
+                        <span class="pubdate" id="detailBookPubdate">출판일</span>
+                    </p>
+                    
+                    <div class="detail-meta-grid">
+                        <div class="meta-item">
+                            <span class="label">ISBN</span>
+                            <span class="value" id="detailBookIsbn">ISBN 정보 없음</span>
+                        </div>
+                        <div class="meta-item">
+                            <span class="label">총 페이지</span>
+                            <span class="value" id="detailBookPages">0 p</span>
+                        </div>
+                    </div>
+                    
+                    <div class="detail-section">
+                        <h4 class="section-title"><i class="fa-solid fa-align-left"></i> 책 소개</h4>
+                        <div class="section-content scrollable" id="detailBookDesc">
+                            책 소개 정보가 없습니다.
+                        </div>
+                    </div>
+                    
+                    <!-- Reading Progress / Timeline Segment (Visible when reading) -->
+                    <div class="detail-section hidden" id="detailSectionProgress">
+                        <h4 class="section-title"><i class="fa-solid fa-chart-line"></i> 나의 독서 현황</h4>
+                        <div class="section-content">
+                            <div class="detail-progress-bar-container">
+                                <div class="detail-progress-bar-fill" id="detailProgressFill" style="width: 0%"></div>
+                            </div>
+                            <div class="detail-progress-labels">
+                                <span id="detailProgressText">진행률 0% (0 / 0p)</span>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- My Rating & Review (Visible when completed) -->
+                    <div class="detail-section hidden" id="detailSectionReview">
+                        <h4 class="section-title"><i class="fa-solid fa-ranking-star"></i> 나의 완독 평가</h4>
+                        <div class="section-content review-box-obsidian">
+                            <div class="review-header">
+                                <div class="review-stars-detail" id="detailReviewStars">
+                                    <i class="fa-solid fa-star"></i>
+                                    <i class="fa-solid fa-star"></i>
+                                    <i class="fa-solid fa-star"></i>
+                                    <i class="fa-solid fa-star"></i>
+                                    <i class="fa-solid fa-star"></i>
+                                </div>
+                                <span class="review-date" id="detailReviewDate">2026.05.30</span>
+                            </div>
+                            <div class="review-body" id="detailReviewContent">
+                                작성한 리뷰가 없습니다.
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Store Links -->
+                    <div class="detail-section" style="margin-top: auto; padding-top: 16px; border-top: 1px solid rgba(255, 255, 255, 0.06);">
+                        <h4 class="section-title" style="font-size: 11px; text-transform: uppercase; letter-spacing: 1px; color: var(--text-muted); margin-bottom: 8px;"><i class="fa-solid fa-shop"></i> 최저가 구매 및 상세 페이지</h4>
+                        <div style="display: flex; gap: 8px;">
+                            <a href="#" target="_blank" class="btn-store kyobo" id="btnDetailStoreKyobo" style="flex: 1; text-align: center; text-decoration: none;">교보문고</a>
+                            <a href="#" target="_blank" class="btn-store aladin" id="btnDetailStoreAladin" style="flex: 1; text-align: center; text-decoration: none;">알라딘</a>
+                        </div>
+                    </div>
+                </div>
+            </div>
         </div>
     </div>
 

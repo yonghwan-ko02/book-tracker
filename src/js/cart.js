@@ -1,6 +1,7 @@
 // Cart Module - Manage Shopping Cart, Mock Pricing and Checkout Redirection
 import { supabase } from './supabase.js';
 import { getCurrentUser, showToast } from './auth.js';
+import { showBookDetail } from './detail.js';
 
 // UI elements references (Initialized in initCart)
 let cartList = null;
@@ -132,6 +133,12 @@ function renderCartList() {
     cartItems.forEach(item => {
         const row = document.createElement('div');
         row.className = 'cart-item';
+        
+        // Click triggers detailed modal
+        row.addEventListener('click', (e) => {
+            if (e.target.closest('.cart-item-actions') || e.target.closest('.btn-cart-remove')) return;
+            showBookDetail(item);
+        });
         
         // Dynamic bookstore search hrefs
         const kyoboUrl = getStoreLink(item.isbn, item.title, item.authors, 'kyobo');

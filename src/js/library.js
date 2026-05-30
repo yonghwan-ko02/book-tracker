@@ -1,6 +1,7 @@
 // Library Module - Manage Library Books, Reading Progress, Logs and Reviews
 import { supabase } from './supabase.js';
 import { getCurrentUser, showToast } from './auth.js';
+import { showBookDetail } from './detail.js';
 
 // UI references (Initialized in initLibrary)
 let libraryGrid = null;
@@ -169,6 +170,12 @@ function renderBooks(books) {
     books.forEach(book => {
         const card = document.createElement('div');
         card.className = 'book-card';
+        
+        // Card click triggers detailed modal
+        card.addEventListener('click', (e) => {
+            if (e.target.closest('.btn-card-action')) return;
+            showBookDetail(book);
+        });
         
         // Progress percentage calculation
         let pct = 0;

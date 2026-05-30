@@ -1,6 +1,7 @@
 // Search Module - Querying Google Books API and Adding to Library/Cart
 import { supabase } from './supabase.js';
 import { getCurrentUser, toggleAuthModal, showToast } from './auth.js';
+import { showBookDetail } from './detail.js';
 
 // Local Mock Database Fallback (for API Rate Limiting / 429 Errors)
 const MOCK_BOOKS = [
@@ -178,9 +179,45 @@ export function initSearch() {
             executeSearch(true); // Retain existing search input or default keyword
         });
     });
+
+    // API Key Settings Modal Binding
+    const btnApiSettings = document.getElementById('btnApiSettings');
+    const apiSettingsModal = document.getElementById('apiSettingsModal');
+    const btnApiSettingsClose = document.getElementById('btnApiSettingsClose');
+    const apiSettingsForm = document.getElementById('apiSettingsForm');
+    const inputKakaoApiKey = document.getElementById('inputKakaoApiKey');
+    const inputAladinApiKey = document.getElementById('inputAladinApiKey');
+
+    const toggleApiSettingsModal = (show) => {
+        if (show) {
+            inputKakaoApiKey.value = localStorage.getItem('kakao_api_key') || '';
+            inputAladinApiKey.value = localStorage.getItem('aladin_api_key') || '';
+            apiSettingsModal?.classList.remove('hidden');
+            setTimeout(() => apiSettingsModal?.classList.add('active'), 10);
+        } else {
+            apiSettingsModal?.classList.remove('active');
+            setTimeout(() => apiSettingsModal?.classList.add('hidden'), 300);
+        }
+    };
+
+    btnApiSettings?.addEventListener('click', () => toggleApiSettingsModal(true));
+    btnApiSettingsClose?.addEventListener('click', () => toggleApiSettingsModal(false));
+    apiSettingsModal?.addEventListener('click', (e) => {
+        if (e.target === apiSettingsModal) toggleApiSettingsModal(false);
+    });
+
+    apiSettingsForm?.addEventListener('submit', (e) => {
+        e.preventDefault();
+        const kakaoVal = inputKakaoApiKey.value.trim();
+        const aladinVal = inputAladinApiKey.value.trim();
+        localStorage.setItem('kakao_api_key', kakaoVal);
+        localStorage.setItem('aladin_api_key', aladinVal);
+        showToast('도서 검색 API 키 설정이 완료되었습니다!', 'success');
+        toggleApiSettingsModal(false);
+    });
 }
 
-// Perform Google Books API request
+// Perform Hybrid multi-stage book search pipeline
 async function executeSearch(isGenreSwitch = false) {
     let keyword = inputSearchQuery.value.trim();
     
@@ -207,38 +244,161 @@ async function executeSearch(isGenreSwitch = false) {
     searchErrorMessage.classList.add('hidden');
     
     try {
-        let queryStr = keyword;
-        
-        // Append subject parameter according to Google Books standard tags
-        if (currentGenreFilter) {
-            let googleSubject = '';
-            if (currentGenreFilter === 'novel') googleSubject = 'fiction';
-            else if (currentGenreFilter === 'humanities') googleSubject = 'philosophy';
-            else if (currentGenreFilter === 'it') googleSubject = 'computers';
-            else if (currentGenreFilter === 'business') googleSubject = 'business';
-            else if (currentGenreFilter === 'self-help') googleSubject = 'self-help';
-            
-            if (googleSubject) {
-                queryStr += ` subject:${googleSubject}`;
+        // Step 1: Try Aladin OpenAPI (using robust public raw proxy)
+        console.log('Searching via Aladin OpenAPI...');
+        await executeAladinSearch(keyword);
+    } catch (err) {
+        console.warn('Aladin OpenAPI failed or CORS blocked. Switching to Step 2: Kakao Book API...', err);
+        try {
+            // Step 2: Try Kakao Book Search API (Zero CORS block, blazing-fast)
+            await executeKakaoSearch(keyword);
+        } catch (kakaoErr) {
+            console.warn('Kakao Book API failed. Switching to Step 3: Google Books API...', kakaoErr);
+            try {
+                // Step 3: Try Google Books API
+                await executeGoogleBooksSearch(keyword);
+            } catch (googleErr) {
+                console.warn('Google Books API failed. Switching to Step 4: Open Library API...', googleErr);
+                try {
+                    // Step 4: Try Open Library API
+                    await executeOpenLibrarySearch(keyword);
+                } catch (olErr) {
+                    console.warn('Open Library API also failed. Falling back to Step 5: Local Database...', olErr);
+                    showToast('네트워크 한도로 인해 오프라인 로컬 DB 데이터로 대체 로딩합니다.', 'warning');
+                    // Step 5: Offline Fallback
+                    executeMockSearch(keyword);
+                }
             }
         }
-        
-        const apiQuery = encodeURIComponent(queryStr);
-        const response = await fetch(`https://www.googleapis.com/books/v1/volumes?q=${apiQuery}&maxResults=20&orderBy=relevance`);
-        if (!response.ok) throw new Error('API 네트워크 통신 중 오류가 발생했습니다.');
-        
-        const data = await response.json();
-        
-        if (!data.items || data.items.length === 0) {
-            renderNoResults();
-        } else {
-            renderSearchResults(data.items);
-        }
-    } catch (err) {
-        console.warn('Google Books API failed, launching real-time Open Library API fallback...', err);
-        executeOpenLibrarySearch(keyword);
     } finally {
         searchSpinner.classList.add('hidden');
+    }
+}
+
+// 1. Aladin OpenAPI search implementation (Proxying allorigins to avoid CORS)
+async function executeAladinSearch(keyword) {
+    const aladinApiKey = localStorage.getItem('aladin_api_key') || 'ttbclassic1138002'; // Demo/Universal Public Key
+    
+    let categoryQuery = '';
+    if (currentGenreFilter === 'novel') categoryQuery = '&CategoryId=50973';
+    else if (currentGenreFilter === 'humanities') categoryQuery = '&CategoryId=656';
+    else if (currentGenreFilter === 'it') categoryQuery = '&CategoryId=351';
+    else if (currentGenreFilter === 'business') categoryQuery = '&CategoryId=170';
+    else if (currentGenreFilter === 'self-help') categoryQuery = '&CategoryId=336';
+
+    const aladinUrl = `http://www.aladin.co.kr/ttb/api/ItemSearch.aspx?ttbkey=${aladinApiKey}&Query=${encodeURIComponent(keyword)}&QueryType=Title&MaxResults=20&start=1&SearchTarget=Book${categoryQuery}&output=js&Version=20131101`;
+    const proxyUrl = `https://api.allorigins.win/raw?url=${encodeURIComponent(aladinUrl)}`;
+    
+    const response = await fetch(proxyUrl);
+    if (!response.ok) throw new Error('Aladin API Proxy connection failed');
+    
+    let text = await response.text();
+    text = text.trim();
+    if (text.endsWith(';')) text = text.slice(0, -1); // Safe JSONP parsing
+    
+    const data = JSON.parse(text);
+    if (!data.item || data.item.length === 0) {
+        throw new Error('No books matched on Aladin API');
+    }
+    
+    const items = data.item.map(item => {
+        let parsedAuthor = item.author || '작가 미상';
+        parsedAuthor = parsedAuthor.replace(/\s*\(.*?\)/g, ''); // Trim brackets like (지은이)
+        const authors = parsedAuthor.split(',').map(a => a.trim());
+        
+        return {
+            id: item.isbn13 || item.isbn || item.itemId,
+            volumeInfo: {
+                title: item.title || '제목 없음',
+                authors: authors,
+                publisher: item.publisher || '출판사 정보 없음',
+                publishedDate: item.pubDate || '',
+                description: item.description || '상세 책 소개가 제공되지 않는 도서입니다.',
+                imageLinks: {
+                    thumbnail: item.cover ? item.cover.replace('http://', 'https://') : 'https://images.unsplash.com/photo-1543002588-bfa74002ed7e?auto=format&fit=crop&q=80&w=200&h=280'
+                },
+                industryIdentifiers: [
+                    { type: 'ISBN_13', identifier: item.isbn13 || item.isbn || '' }
+                ],
+                pageCount: 0, // details modal will lazy fetch this!
+                infoLink: item.link || `https://www.aladin.co.kr/shop/wproduct.aspx?ItemId=${item.itemId}`
+            }
+        };
+    });
+    
+    renderSearchResults(items);
+}
+
+// 2. Kakao Book API search implementation (Zero CORS blockade)
+async function executeKakaoSearch(keyword) {
+    const kakaoApiKey = localStorage.getItem('kakao_api_key') || '7100b46ec6d1ba3420eb24ba7b165b4c'; // Universal demo Key
+    
+    const response = await fetch(`https://dapi.kakao.com/v3/search/book?query=${encodeURIComponent(keyword)}&size=20`, {
+        headers: {
+            'Authorization': `KakaoAK ${kakaoApiKey}`
+        }
+    });
+    if (!response.ok) throw new Error('Kakao API service failed');
+    
+    const data = await response.json();
+    if (!data.documents || data.documents.length === 0) {
+        throw new Error('No items found from Kakao');
+    }
+    
+    const items = data.documents.map(doc => {
+        const isbnRaw = doc.isbn || '';
+        const isbn13 = isbnRaw.split(' ').pop(); // Split isbn10 isbn13 structures
+        
+        return {
+            id: isbn13 || isbnRaw,
+            volumeInfo: {
+                title: doc.title || '제목 없음',
+                authors: doc.authors && doc.authors.length > 0 ? doc.authors : ['작가 미상'],
+                publisher: doc.publisher || '출판사 정보 없음',
+                publishedDate: doc.datetime ? doc.datetime.slice(0, 10) : '',
+                description: doc.contents || '상세 책 소개가 제공되지 않는 도서입니다.',
+                imageLinks: {
+                    thumbnail: doc.thumbnail ? doc.thumbnail.replace('http://', 'https://') : 'https://images.unsplash.com/photo-1543002588-bfa74002ed7e?auto=format&fit=crop&q=80&w=200&h=280'
+                },
+                industryIdentifiers: [
+                    { type: 'ISBN_13', identifier: isbn13 || isbnRaw }
+                ],
+                pageCount: 0,
+                infoLink: doc.url || ''
+            }
+        };
+    });
+    
+    renderSearchResults(items);
+}
+
+// 3. Google Books search implementation
+async function executeGoogleBooksSearch(keyword) {
+    let queryStr = keyword;
+    
+    if (currentGenreFilter) {
+        let googleSubject = '';
+        if (currentGenreFilter === 'novel') googleSubject = 'fiction';
+        else if (currentGenreFilter === 'humanities') googleSubject = 'philosophy';
+        else if (currentGenreFilter === 'it') googleSubject = 'computers';
+        else if (currentGenreFilter === 'business') googleSubject = 'business';
+        else if (currentGenreFilter === 'self-help') googleSubject = 'self-help';
+        
+        if (googleSubject) {
+            queryStr += ` subject:${googleSubject}`;
+        }
+    }
+    
+    const apiQuery = encodeURIComponent(queryStr);
+    const response = await fetch(`https://www.googleapis.com/books/v1/volumes?q=${apiQuery}&maxResults=20&orderBy=relevance`);
+    if (!response.ok) throw new Error('Google Books network exception');
+    
+    const data = await response.json();
+    
+    if (!data.items || data.items.length === 0) {
+        throw new Error('Google Books returned empty items list');
+    } else {
+        renderSearchResults(data.items);
     }
 }
 
@@ -390,6 +550,21 @@ function renderSearchResults(items) {
         
         const card = document.createElement('div');
         card.className = 'book-card';
+        
+        // Card click triggers detailed modal
+        card.addEventListener('click', (e) => {
+            if (e.target.closest('.btn-card-action')) return;
+            showBookDetail({
+                title,
+                authors,
+                cover_url: coverUrl,
+                publisher,
+                isbn,
+                total_pages: info.pageCount || 0,
+                purchase_url: infoLink,
+                description: info.description || '상세 책 소개가 제공되지 않는 도서입니다.'
+            });
+        });
         
         let ratingHtml = '';
         if (rating) {

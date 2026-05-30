@@ -5,6 +5,7 @@ import { initSearch } from './search.js';
 import { initLibrary, fetchAndRenderLibrary } from './library.js';
 import { initCart, fetchAndRenderCart } from './cart.js';
 import { fetchAndRenderAIRecommendations } from './ai.js';
+import { initBookDetail, showBookDetail } from './detail.js';
 
 // Panel title mapping metadata
 const panelMetadata = {
@@ -52,6 +53,7 @@ function initApp() {
     initSearch();
     initLibrary();
     initCart();
+    initBookDetail();
     
     // Bind global dashboard listener updates
     window.addEventListener('dashboard-updated', () => {
@@ -362,6 +364,14 @@ function renderActiveShowcase(books) {
         </div>
     `;
     
+    // Bind click on cover and title to open detailed modal
+    showcaseContainer.querySelector('.showcase-cover')?.addEventListener('click', () => showBookDetail(activeBook));
+    showcaseContainer.querySelector('.showcase-title')?.addEventListener('click', () => showBookDetail(activeBook));
+    const coverEl = showcaseContainer.querySelector('.showcase-cover');
+    const titleEl = showcaseContainer.querySelector('.showcase-title');
+    if (coverEl) coverEl.style.cursor = 'pointer';
+    if (titleEl) titleEl.style.cursor = 'pointer';
+
     // Bind quick page update logging next to showcase card
     showcaseContainer.querySelector('.btn-showcase-log')?.addEventListener('click', (e) => {
         const btn = e.currentTarget;
